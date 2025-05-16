@@ -4,17 +4,25 @@ import numpy as np
 import tensorflow as tf
 from ultralytics import YOLO
 
-# --- Load models ---
-detector = YOLO("/content/yolov8n%20%281%29.pt")
-cnn_interpreter = tf.lite.Interpreter(model_path="/content/cnn_food_classifier.tflite")
+detector = YOLO("/content/YOLOv8.pt")
+cnn_interpreter = tf.lite.Interpreter(model_path="/content/CNNmodel.tflite")
 cnn_interpreter.allocate_tensors()
 cnn_input = cnn_interpreter.get_input_details()
 cnn_output = cnn_interpreter.get_output_details()
 
 FOOD_LABELS = [
-    "Ca hu kho", "Canh cai", "Canh chua", "Com trang", "Dau hu sot ca",
-    "Ga chien", "Rau muong xao", "Thit kho", "Thit kho trung", "Trung chien"
+    "Ca hu kho",
+    "Canh cai",
+    "Canh chua",
+    "Com trang",
+    "Dau hu sot ca",
+    "Ga chien",
+    "Rau muong xao",
+    "Thit kho",
+    "Thit kho trung",
+    "Trung chien"
 ]
+
 PRICE_LIST = {
     "Ca hu kho": 25000,
     "Canh cai": 10000,
@@ -55,16 +63,16 @@ def detect_and_classify(img):
     summary = "\n".join(detail_lines)
     return summary, f"{total_cost:,}đ"
 
-# --- Giao diện sạch, không icon ---
+
 with gr.Blocks(theme=gr.themes.Soft()) as app:
     with gr.Row():
         with gr.Column(scale=1, min_width=120):
             logo = gr.Image(
-                value="/content/Logo UEH xanh.png",  # Logo CỐ ĐỊNH
+                value="/content/Logo UEH xanh.png",
                 label="",
                 show_label=False,
                 height=90,
-                interactive=False   # Không cho click đổi nữa
+                interactive=False  
             )
         with gr.Column(scale=3):
             gr.Markdown(
