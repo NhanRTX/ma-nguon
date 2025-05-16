@@ -1,0 +1,89 @@
+import gradio as gr
+import cv2
+import numpy as np
+import tensorflow as tf
+from ultralytics import YOLO
+
+# --- Load models ---
+detector = YOLO("/content/yolov8n%20%281%29.pt")
+cnn_interpreter = tf.lite.Interpreter(model_path="/content/cnn_food_classifier.tflite")
+cnn_interpreter.allocate_tensors()
+cnn_input = cnn_interpreter.get_input_details()
+cnn_output = cnn_interpreter.get_output_details()
+
+FOOD_LABELS = [
+    "Ca hu kho", "Canh cai", "Canh chua", "Com trang", "Dau hu sot ca",
+    "Ga chien", "Rau muong xao", "Thit kho", "Thit kho trung", "Trung chien"
+]
+PRICE_LIST = {
+    "Ca hu kho": 25000,
+    "Canh cai": 10000,
+    "Canh chua": 30000,
+    "Com trang": 5000,
+    "Dau hu sot ca": 25000,
+    "Ga chien": 25000,
+    "Rau muong xao": 15000,
+    "Thit kho": 30000,
+    "Thit kho trung": 35000,
+    "Trung chien": 10000
+}
+
+def detect_and_classify(img):
+    yolo_result = detector(img)
+    bboxes = yolo_result[0].boxes.data.cpu().numpy()
+    detected_dishes = []
+    total_cost = 0
+    for box in bboxes:
+        xmin, ymin, xmax, ymax, conf, yolo_cls = box
+        if conf < 0.3:
+            continue
+        crop_img = img[int(ymin):int(ymax), int(xmin):int(xmax)]
+        if crop_img.size == 0:
+            continue
+        crop_resized = cv2.resize(crop_img, (224, 224))
+        input_arr = np.expand_dims(crop_resized.astype(np.float32) / 255.0, axis=0)
+        cnn_interpreter.set_tensor(cnn_input[0]['index'], input_arr)
+        cnn_interpreter.invoke()
+        preds = cnn_interpreter.get_tensor(cnn_output[0]['index'])
+        dish_idx = int(np.argmax(preds))
+        dish_name = FOOD_LABELS[dish_idx]
+        detected_dishes.append(dish_name)
+        total_cost += PRICE_LIST.get(dish_name, 0)
+    if not detected_dishes:
+        return "Không nhận diện được món nào!", "0đ"
+    detail_lines = [f"- {name}: {PRICE_LIST[name]:,}đ" for name in detected_dishes]
+    summary = "\n".join(detail_lines)
+    return summary, f"{total_cost:,}đ"
+
+# --- Giao diện sạch, không icon ---
+with gr.Blocks(theme=gr.themes.Soft()) as app:
+    with gr.Row():
+        with gr.Column(scale=1, min_width=120):
+            logo = gr.Image(
+                value="/content/Logo UEH xanh.png",  # Logo CỐ ĐỊNH
+                label="",
+                show_label=False,
+                height=90,
+                interactive=False   # Không cho click đổi nữa
+            )
+        with gr.Column(scale=3):
+            gr.Markdown(
+                """
+                <div style='text-align:left; font-size:2em; font-weight:bold; color:#20639B;'>
+                    HỆ THỐNG NHẬN DIỆN MÓN ĂN & TÍNH TIỀN CANTEEN
+                </div>
+                """,
+                elem_id="main-title"
+            )
+    with gr.Row():
+        inp_img = gr.Image(type="numpy", label="Tải ảnh khay cơm", interactive=True)
+        with gr.Column():
+            out_dishes = gr.Textbox(label="Danh sách món ăn & giá tiền", lines=8, interactive=False)
+            out_sum = gr.Textbox(label="Tổng tiền", interactive=False)
+    run_btn = gr.Button("Nhận diện và tính tiền", elem_id="predict-btn")
+    gr.Markdown(
+        "<div style='text-align:center; color:#aaa; font-size:0.95em; margin-top:12px;'>© 2024 Boneca Ambalabu | AI Challenge 3ITech</div>"
+    )
+    run_btn.click(fn=detect_and_classify, inputs=inp_img, outputs=[out_dishes, out_sum])
+
+app.launch()
