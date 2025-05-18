@@ -8,17 +8,14 @@ from datetime import datetime
 import tensorflow as tf
 from ultralytics import YOLO
 
-# Tạo thư mục lưu hóa đơn nếu chưa có
 os.makedirs("invoices", exist_ok=True)
 
-# Load mô hình YOLO và CNN
 detector = YOLO("/content/YOLOv8.pt")
 cnn_interpreter = tf.lite.Interpreter(model_path="/content/CNNmodel.tflite")
 cnn_interpreter.allocate_tensors()
 cnn_input = cnn_interpreter.get_input_details()
 cnn_output = cnn_interpreter.get_output_details()
 
-# Danh sách món và giá
 FOOD_LABELS = [
     "Ca hu kho",
     "Canh cai",
